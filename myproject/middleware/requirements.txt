@@ -1,0 +1,5 @@
+pymongo==3.11.4            # MongoDB client to interact with the database
+paho-mqtt==1.5.1           # MQTT client for communication with the broker
+Flask==2.0.1               # Flask for creating a REST API for the middleware
+requests==2.25.1           # For making HTTP requests (if needed in the middleware)
+

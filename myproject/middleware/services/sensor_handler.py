@@ -1,6 +1,10 @@
+import logging
 from datetime import datetime
 import random
 import paho.mqtt.client as mqtt
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Simulate validated tickets (ensure it's never higher than passenger count)
 def simulate_validated_tickets(passenger_count):
@@ -8,14 +12,12 @@ def simulate_validated_tickets(passenger_count):
 
 # Fare evasion detection logic
 def check_fare_evasion(passenger_count, validated_tickets):
-    # Ensure validated tickets are not higher than passenger count
     if validated_tickets > passenger_count:
         raise ValueError("Validated tickets cannot exceed passenger count")
     
-    # Detect fare evasion
     if passenger_count > validated_tickets:
         evasion_count = passenger_count - validated_tickets
-        print(f"Fare evasion detected: {evasion_count} passengers without valid tickets.")
+        logging.info(f"Fare evasion detected: {evasion_count} passengers without valid tickets.")
         return True, evasion_count
     return False, 0
 
@@ -25,70 +27,74 @@ def on_message(client, userdata, msg):
     topic = msg.topic
     payload = msg.payload.decode()
 
-    # Passenger data processing
-    if "passenger_count" in topic:
-        # Extract passenger count from payload
-        passenger_count = int(payload.split(":")[1])
+    logging.info(f"Received message on topic {topic}: {payload}")
 
-        # Simulate validated tickets for testing
-        validated_tickets = simulate_validated_tickets(passenger_count)
+    try:
+        if "passenger_count" in topic:
+            # Process passenger data
+            passenger_count = int(payload.split(":")[1])
+            validated_tickets = simulate_validated_tickets(passenger_count)
+            fare_evasion_detected, evasion_count = check_fare_evasion(passenger_count, validated_tickets)
 
-        # Check for fare evasion
-        fare_evasion_detected, evasion_count = check_fare_evasion(passenger_count, validated_tickets)
-
-        # Prepare data to store in MongoDB
-        data = {
-            "timestamp": datetime.utcnow(),
-            "sensor_type": "passenger_count",
-            "vehicle_id": "bus_123",  # Replace with actual vehicle ID
-            "passenger_count": passenger_count,
-            "validated_tickets": validated_tickets,
-            "fare_evasion_detected": fare_evasion_detected,
-            "evasion_count": evasion_count
-        }
-        db.insert_data("passenger_counts", data)
-
-        # Store fare evasion alert if detected
-        if fare_evasion_detected:
-            alert = {
+            # Prepare data to store in MongoDB
+            data = {
                 "timestamp": datetime.utcnow(),
+                "sensor_type": "passenger_count",
                 "vehicle_id": "bus_123",  # Replace with actual vehicle ID
-                "alert_type": "fare_evasion",
-                "details": f"{evasion_count} passengers without valid tickets"
+                "passenger_count": passenger_count,
+                "validated_tickets": validated_tickets,
+                "fare_evasion_detected": fare_evasion_detected,
+                "evasion_count": evasion_count
             }
-            db.insert_data("alerts", alert)
+            logging.info(f"Inserting passenger count data into MongoDB: {data}")
+            db.insert_data("passenger_counts", data)
 
-    elif "environment" in topic:
-        # Extract temperature and humidity from the payload
-        temperature, humidity = payload.split(",")
-        data = {
-            "timestamp": datetime.utcnow(),
-            "sensor_type": "environment",
-            "vehicle_id": "bus_123",  # Replace with actual vehicle ID
-            "temperature": float(temperature.split(":")[1].strip("C")),
-            "humidity": float(humidity.split(":")[1].strip("%"))
-        }
-        # Store environmental data in MongoDB
-        db.insert_data("environment_data", data)
+            if fare_evasion_detected:
+                alert = {
+                    "timestamp": datetime.utcnow(),
+                    "vehicle_id": "bus_123",
+                    "alert_type": "fare_evasion",
+                    "details": f"{evasion_count} passengers without valid tickets"
+                }
+                logging.info(f"Inserting fare evasion alert into MongoDB: {alert}")
+                db.insert_data("alerts", alert)
 
-    elif "gps" in topic:
-        # Extract latitude and longitude from the payload
-        latitude, longitude = payload.split(",")
-        data = {
-            "timestamp": datetime.utcnow(),
-            "sensor_type": "gps",
-            "vehicle_id": "bus_123",  # Replace with actual vehicle ID
-            "latitude": float(latitude.split(":")[1]),
-            "longitude": float(longitude.split(":")[1])
-        }
-        # Store GPS data in MongoDB
-        db.insert_data("gps_data", data)
+        elif "environment" in topic:
+            temperature, humidity = payload.split(",")
+            data = {
+                "timestamp": datetime.utcnow(),
+                "sensor_type": "environment",
+                "vehicle_id": "bus_123",
+                "temperature": float(temperature.split(":")[1].strip("C")),
+                "humidity": float(humidity.split(":")[1].strip("%"))
+            }
+            logging.info(f"Inserting environmental data into MongoDB: {data}")
+            db.insert_data("environment_data", data)
 
+        elif "gps" in topic:
+            latitude, longitude = payload.split(",")
+            data = {
+                "timestamp": datetime.utcnow(),
+                "sensor_type": "gps",
+                "vehicle_id": "bus_123",
+                "latitude": float(latitude.split(":")[1]),
+                "longitude": float(longitude.split(":")[1])
+            }
+            logging.info(f"Inserting GPS data into MongoDB: {data}")
+            db.insert_data("gps_data", data)
+
+    except Exception as e:
+        logging.error(f"Error processing message on topic {topic}: {str(e)}", exc_info=True)
 
 # Start MQTT listener
 def start_mqtt_listener(db_handler):
     client = mqtt.Client(userdata=db_handler)
     client.on_message = on_message
-    client.connect("mqtt_broker", 1883, 60)  # Connect to your MQTT broker
-    client.subscribe("vehicle/sensor_data/#")  # Listen to all sensor topics
-    client.loop_forever()
+    try:
+        client.connect("mqtt_broker", 1883, 60)
+        logging.info("Connected to MQTT broker")
+        client.subscribe("vehicle/sensor_data/#")
+        logging.info("Subscribed to vehicle/sensor_data/# topic")
+        client.loop_forever()
+    except Exception as e:
+        logging.error(f"Failed to connect or subscribe to MQTT broker: {str(e)}", exc_info=True)

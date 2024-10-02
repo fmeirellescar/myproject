@@ -12,6 +12,43 @@ db = MongoDBHandler()
 def index():
     return "Middleware is running."
 
+# Endpoint to get current passenger counts
+@app.route('/passenger_counts', methods=['GET'])
+def get_passenger_counts():
+    try:
+        data = db.get_data("passenger_counts", {})
+        return jsonify(list(data)), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Endpoint to get real-time environmental data
+@app.route('/environment_data', methods=['GET'])
+def get_environment_data():
+    try:
+        data = db.get_data("environment_data", {})
+        return jsonify(list(data)), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Endpoint to get real-time GPS data
+@app.route('/gps_data', methods=['GET'])
+def get_gps_data():
+    try:
+        data = db.get_data("gps_data", {})
+        return jsonify(list(data)), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Endpoint to get active alerts
+@app.route('/alerts', methods=['GET'])
+def get_alerts():
+    try:
+        alerts = db.get_data("alerts", {})
+        return jsonify(list(alerts)), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # Start the MQTT listener in a separate thread
 if __name__ == "__main__":
     mqtt_thread = threading.Thread(target=start_mqtt_listener, args=(db,))

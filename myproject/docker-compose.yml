@@ -14,9 +14,10 @@ services:
     container_name: mqtt_broker
     ports:
       - "1883:1883"
+      - "9001:9001"
     volumes:
-      - ./mqtt_config/mosquitto.conf:/mosquitto/config/mosquitto.conf
-
+      - ./mqtt_config:/mosquitto/config
+    command: mosquitto -c /mosquitto/config/mosquitto.conf
 
   middleware:
     build:
@@ -68,4 +69,3 @@ services:
 
 volumes:
   mongo_data:
-

@@ -6,7 +6,13 @@ import paho.mqtt.client as mqtt
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Simulate validated tickets (In reality this data would be retrieved from the validation database from SNCF)
+# Global variables for batch data and batch size
+BATCH_SIZE = 10  # Set the batch size to trigger insert
+passenger_batch = []
+environment_batch = []
+gps_batch = []
+
+# Simulate validated tickets (ensure it's never higher than passenger count)
 def simulate_validated_tickets(passenger_count):
     lower_bound = int(0.3 * passenger_count)
     upper_bound = int(0.9 * passenger_count)
@@ -29,6 +35,8 @@ def on_message(client, userdata, msg):
     topic = msg.topic
     payload = msg.payload.decode()
 
+    global passenger_batch, environment_batch, gps_batch
+
     logging.info(f"Received message on topic {topic}: {payload}")
 
     try:
@@ -48,20 +56,18 @@ def on_message(client, userdata, msg):
                 "fare_evasion_detected": fare_evasion_detected,
                 "evasion_count": evasion_count
             }
-            logging.info(f"Inserting passenger count data into MongoDB: {data}")
-            db.insert_data("passenger_counts", data)
 
-            if fare_evasion_detected:
-                alert = {
-                    "timestamp": datetime.utcnow(),
-                    "vehicle_id": "bus_123",
-                    "alert_type": "fare_evasion",
-                    "details": f"{evasion_count} passengers without valid tickets"
-                }
-                logging.info(f"Inserting fare evasion alert into MongoDB: {alert}")
-                db.insert_data("alerts", alert)
+            # Add the data to the passenger batch
+            passenger_batch.append(data)
+
+            # Insert batch if batch size is reached
+            if len(passenger_batch) >= BATCH_SIZE:
+                logging.info(f"Inserting passenger batch data into MongoDB: {passenger_batch}")
+                db.insert_data("passenger_counts", passenger_batch)
+                passenger_batch = []  # Reset the batch
 
         elif "environment" in topic:
+            # Process environmental data
             temperature, humidity = payload.split(",")
             data = {
                 "timestamp": datetime.utcnow(),
@@ -70,10 +76,18 @@ def on_message(client, userdata, msg):
                 "temperature": float(temperature.split(":")[1].strip("C")),
                 "humidity": float(humidity.split(":")[1].strip("%"))
             }
-            logging.info(f"Inserting environmental data into MongoDB: {data}")
-            db.insert_data("environment_data", data)
+
+            # Add the data to the environment batch
+            environment_batch.append(data)
+
+            # Insert batch if batch size is reached
+            if len(environment_batch) >= BATCH_SIZE:
+                logging.info(f"Inserting environment batch data into MongoDB: {environment_batch}")
+                db.insert_data("environment_data", environment_batch)
+                environment_batch = []  # Reset the batch
 
         elif "gps" in topic:
+            # Process GPS data
             latitude, longitude = payload.split(",")
             data = {
                 "timestamp": datetime.utcnow(),
@@ -82,8 +96,15 @@ def on_message(client, userdata, msg):
                 "latitude": float(latitude.split(":")[1]),
                 "longitude": float(longitude.split(":")[1])
             }
-            logging.info(f"Inserting GPS data into MongoDB: {data}")
-            db.insert_data("gps_data", data)
+
+            # Add the data to the GPS batch
+            gps_batch.append(data)
+
+            # Insert batch if batch size is reached
+            if len(gps_batch) >= BATCH_SIZE:
+                logging.info(f"Inserting GPS batch data into MongoDB: {gps_batch}")
+                db.insert_data("gps_data", gps_batch)
+                gps_batch = []  # Reset the batch
 
     except Exception as e:
         logging.error(f"Error processing message on topic {topic}: {str(e)}", exc_info=True)

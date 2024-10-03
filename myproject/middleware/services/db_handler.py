@@ -1,14 +1,18 @@
-# db_handler.py
 from pymongo import MongoClient
 
-# Change from localhost to the MongoDB service name 'mongodb'
-MONGODB_URI = "mongodb://mongodb:27017"  # Correct the host here
-client = MongoClient(MONGODB_URI)
-
 class MongoDBHandler:
-    def __init__(self):
-        self.db = client["transport_db"]
+    def __init__(self, db_name="transport_db"):
+        self.client = MongoClient("mongodb://mongodb:27017/")
+        self.db = self.client[db_name]
 
-    def insert_data(self, collection, data):
-        col = self.db[collection]
-        col.insert_one(data)
+    def insert_data(self, collection_name, data):
+        """Insert single or batch data into the MongoDB collection."""
+        collection = self.db[collection_name]
+
+        # Check if data is a list (batch insert) or single document
+        if isinstance(data, list):
+            # Insert multiple documents at once
+            collection.insert_many(data)
+        else:
+            # Insert a single document
+            collection.insert_one(data)

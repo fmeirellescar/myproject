@@ -19,7 +19,7 @@ def publish_sensor_data():
         passenger_count = simulate_passenger_count()
         client.publish(TOPIC, f"PassengerCount: {passenger_count}")
         print(f"Published PassengerCount: {passenger_count}")
-        time.sleep(5)
+        time.sleep(40)
 
 if __name__ == "__main__":
     publish_sensor_data()

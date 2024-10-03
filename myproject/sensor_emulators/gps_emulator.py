@@ -23,7 +23,7 @@ def publish_gps_data():
         payload = f"Latitude: {latitude}, Longitude: {longitude}"
         client.publish(TOPIC, payload)
         print(f"Published: {payload}")
-        time.sleep(10)  # Send data every 10 seconds
+        time.sleep(40)  # Send data every 10 seconds
 
 if __name__ == "__main__":
     publish_gps_data()

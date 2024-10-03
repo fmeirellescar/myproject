@@ -6,9 +6,11 @@ import paho.mqtt.client as mqtt
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Simulate validated tickets (ensure it's never higher than passenger count)
+# Simulate validated tickets (In reality this data would be retrieved from the validation database from SNCF)
 def simulate_validated_tickets(passenger_count):
-    return random.randint(0.3*passenger_count, 0.9*passenger_count)
+    lower_bound = int(0.3 * passenger_count)
+    upper_bound = int(0.9 * passenger_count)
+    return random.randint(lower_bound, upper_bound)
 
 # Fare evasion detection logic
 def check_fare_evasion(passenger_count, validated_tickets):

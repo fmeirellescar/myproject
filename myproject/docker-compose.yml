@@ -31,6 +31,16 @@ services:
     volumes:
       - ./middleware:/app
 
+  locust:
+    build:
+      context: .
+      dockerfile: Dockerfile.locust
+    ports:
+      - "8089:8089"  # Expose Locust web interface
+    depends_on:
+      - middleware  # Ensure the middleware is up before testing
+
+
   passenger_emulator:
     build:
       context: ./sensor_emulators

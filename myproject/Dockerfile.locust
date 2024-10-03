@@ -1,0 +1,16 @@
+FROM python:3.8-slim
+
+# Set the working directory
+WORKDIR /locust
+
+# Install Locust
+RUN pip install locust
+
+# Copy the locustfile to the container
+COPY locustfile.py .
+
+# Expose the Locust web interface on port 8089
+EXPOSE 8089
+
+# Run Locust with the locustfile.py when the container starts
+CMD ["locust", "-f", "locustfile.py", "--host=http://python_middleware:5000"]

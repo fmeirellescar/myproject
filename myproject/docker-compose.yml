@@ -8,6 +8,9 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    environment:
+      MONGO_INITDB_DATABASE: transport_dbb
 
   mqtt_broker:
     image: eclipse-mosquitto

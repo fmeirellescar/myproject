@@ -25,9 +25,15 @@ def metrics():
 @app.route('/passenger_counts', methods=['GET', 'POST'])
 @REQUEST_TIME.time()
 def handle_passenger_counts():
+    bus_id = request.args.get('bus_id')  # Get the bus ID if provided in the request
+    query = {}
+    
+    if bus_id:
+        query = {"vehicle_id": bus_id}  # Filter by bus ID if provided
+
     if request.method == 'GET':
         try:
-            data = db.get_data("passenger_counts", {})
+            data = db.get_data("passenger_counts", query)
             return jsonify(list(data)), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -43,9 +49,15 @@ def handle_passenger_counts():
 @app.route('/environment_data', methods=['GET', 'POST'])
 @REQUEST_TIME.time()
 def handle_environment_data():
+    bus_id = request.args.get('bus_id')  # Get the bus ID if provided in the request
+    query = {}
+
+    if bus_id:
+        query = {"vehicle_id": bus_id}  # Filter by bus ID if provided
+
     if request.method == 'GET':
         try:
-            data = db.get_data("environment_data", {})
+            data = db.get_data("environment_data", query)
             return jsonify(list(data)), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -61,9 +73,15 @@ def handle_environment_data():
 @app.route('/gps_data', methods=['GET', 'POST'])
 @REQUEST_TIME.time()
 def handle_gps_data():
+    bus_id = request.args.get('bus_id')  # Get the bus ID if provided in the request
+    query = {}
+
+    if bus_id:
+        query = {"vehicle_id": bus_id}  # Filter by bus ID if provided
+
     if request.method == 'GET':
         try:
-            data = db.get_data("gps_data", {})
+            data = db.get_data("gps_data", query)
             return jsonify(list(data)), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -79,8 +97,14 @@ def handle_gps_data():
 @app.route('/alerts', methods=['GET'])
 @REQUEST_TIME.time()
 def get_alerts():
+    bus_id = request.args.get('bus_id')  # Get the bus ID if provided in the request
+    query = {}
+
+    if bus_id:
+        query = {"vehicle_id": bus_id}  # Filter by bus ID if provided
+
     try:
-        alerts = db.get_data("alerts", {})
+        alerts = db.get_data("alerts", query)
         return jsonify(list(alerts)), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500

@@ -36,6 +36,19 @@ def check_fare_evasion(passenger_count, validated_tickets):
         return True, evasion_count
     return False, 0
 
+# Function to generate a new bus ID
+def generate_bus_id(db):
+    # Query the database to find how many buses already exist
+    bus_count = db.get_data("buses", {}).count()
+    
+    # Generate the next bus ID
+    new_bus_id = f"bus_{bus_count + 1}"
+    
+    # Store this new bus ID in the 'buses' collection
+    db.insert_data("buses", {"bus_id": new_bus_id, "timestamp": datetime.utcnow()})
+    
+    return new_bus_id
+
 # Update Prometheus metrics
 def update_metrics(vehicle_id, unvalidated_passengers, occupancy_percentage, temperature, humidity):
     if unvalidated_passengers is not None:
@@ -58,6 +71,9 @@ def on_message(client, userdata, msg):
     logging.info(f"Received message on topic {topic}: {payload}")
 
     try:
+        # Dynamically generate bus ID (or retrieve existing one)
+        bus_id = generate_bus_id(db)
+
         if "passenger_count" in topic:
             # Process passenger data
             passenger_count = int(payload.split(":")[1])
@@ -68,7 +84,7 @@ def on_message(client, userdata, msg):
             data = {
                 "timestamp": datetime.utcnow(),
                 "sensor_type": "passenger_count",
-                "vehicle_id": "bus_123",  # Replace with actual vehicle ID
+                "vehicle_id": bus_id,  # Use dynamic bus ID
                 "passenger_count": passenger_count,
                 "validated_tickets": validated_tickets,
                 "fare_evasion_detected": fare_evasion_detected,
@@ -86,7 +102,7 @@ def on_message(client, userdata, msg):
 
             # Calculate occupancy and update metrics
             occupancy_percentage = (passenger_count / 50) * 100  # Assume bus capacity of 50
-            update_metrics("bus_123", evasion_count, occupancy_percentage, None, None)
+            update_metrics(bus_id, evasion_count, occupancy_percentage, None, None)
 
         elif "environment" in topic:
             # Process environmental data
@@ -97,7 +113,7 @@ def on_message(client, userdata, msg):
             data = {
                 "timestamp": datetime.utcnow(),
                 "sensor_type": "environment",
-                "vehicle_id": "bus_123",
+                "vehicle_id": bus_id,  # Use dynamic bus ID
                 "temperature": temp_value,
                 "humidity": hum_value
             }
@@ -112,7 +128,7 @@ def on_message(client, userdata, msg):
                 environment_batch = []  # Reset the batch
 
             # Update metrics for temperature and humidity
-            update_metrics("bus_123", None, None, temp_value, hum_value)
+            update_metrics(bus_id, None, None, temp_value, hum_value)
 
         elif "gps" in topic:
             # Process GPS data
@@ -120,7 +136,7 @@ def on_message(client, userdata, msg):
             data = {
                 "timestamp": datetime.utcnow(),
                 "sensor_type": "gps",
-                "vehicle_id": "bus_123",
+                "vehicle_id": bus_id,  # Use dynamic bus ID
                 "latitude": float(latitude.split(":")[1]),
                 "longitude": float(longitude.split(":")[1])
             }

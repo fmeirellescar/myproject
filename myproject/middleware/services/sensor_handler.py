@@ -2,9 +2,16 @@ import logging
 from datetime import datetime
 import random
 import paho.mqtt.client as mqtt
+from prometheus_client import Gauge
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Prometheus Gauges for monitoring
+unvalidated_passengers_gauge = Gauge('unvalidated_passengers_count', 'Number of unvalidated passengers per vehicle', ['vehicle_id'])
+occupancy_gauge = Gauge('occupancy_percentage', 'Percentage of occupancy in the vehicle', ['vehicle_id'])
+temperature_gauge = Gauge('vehicle_temperature', 'Temperature inside the vehicle', ['vehicle_id'])
+humidity_gauge = Gauge('vehicle_humidity', 'Humidity inside the vehicle', ['vehicle_id'])
 
 # Global variables for batch data and batch size
 BATCH_SIZE = 10  # Set the batch size to trigger insert
@@ -28,6 +35,17 @@ def check_fare_evasion(passenger_count, validated_tickets):
         logging.info(f"Fare evasion detected: {evasion_count} passengers without valid tickets.")
         return True, evasion_count
     return False, 0
+
+# Update Prometheus metrics
+def update_metrics(vehicle_id, unvalidated_passengers, occupancy_percentage, temperature, humidity):
+    if unvalidated_passengers is not None:
+        unvalidated_passengers_gauge.labels(vehicle_id).set(unvalidated_passengers)
+    if occupancy_percentage is not None:
+        occupancy_gauge.labels(vehicle_id).set(occupancy_percentage)
+    if temperature is not None:
+        temperature_gauge.labels(vehicle_id).set(temperature)
+    if humidity is not None:
+        humidity_gauge.labels(vehicle_id).set(humidity)
 
 # MQTT message handler
 def on_message(client, userdata, msg):
@@ -66,15 +84,22 @@ def on_message(client, userdata, msg):
                 db.insert_data("passenger_counts", passenger_batch)
                 passenger_batch = []  # Reset the batch
 
+            # Calculate occupancy and update metrics
+            occupancy_percentage = (passenger_count / 50) * 100  # Assume bus capacity of 50
+            update_metrics("bus_123", evasion_count, occupancy_percentage, None, None)
+
         elif "environment" in topic:
             # Process environmental data
             temperature, humidity = payload.split(",")
+            temp_value = float(temperature.split(":")[1].strip("C"))
+            hum_value = float(humidity.split(":")[1].strip("%"))
+            
             data = {
                 "timestamp": datetime.utcnow(),
                 "sensor_type": "environment",
                 "vehicle_id": "bus_123",
-                "temperature": float(temperature.split(":")[1].strip("C")),
-                "humidity": float(humidity.split(":")[1].strip("%"))
+                "temperature": temp_value,
+                "humidity": hum_value
             }
 
             # Add the data to the environment batch
@@ -85,6 +110,9 @@ def on_message(client, userdata, msg):
                 logging.info(f"Inserting environment batch data into MongoDB: {environment_batch}")
                 db.insert_data("environment_data", environment_batch)
                 environment_batch = []  # Reset the batch
+
+            # Update metrics for temperature and humidity
+            update_metrics("bus_123", None, None, temp_value, hum_value)
 
         elif "gps" in topic:
             # Process GPS data

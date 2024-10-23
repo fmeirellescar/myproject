@@ -8,7 +8,7 @@ WORKDIR /app
 COPY . .
 
 # Install required Python packages
-RUN pip install pymongo paho-mqtt flask requests
+RUN pip install pymongo paho-mqtt flask requests prometheus_client
 
 # Expose the API port
 EXPOSE 5000

@@ -3,23 +3,23 @@ import time
 import random
 import paho.mqtt.client as mqtt
 
-# Update BROKER to the Docker service name "mqtt_broker"
+# Broker information
 BROKER = "mqtt_broker"
 PORT = 1883
 TOPIC = "vehicle/sensor_data/passenger_count"
 
-def simulate_passenger_count():
-    return random.randint(10, 50)
+# We set a standard bus_id but we will diferentiate it further
+bus_id = "bus_1"  
 
 def publish_sensor_data():
     client = mqtt.Client()
-    client.connect(BROKER, PORT, 60)
+    client.connect(host=BROKER, port=PORT,keepalive= 60)
 
     while True:
-        passenger_count = simulate_passenger_count()
-        client.publish(TOPIC, f"PassengerCount: {passenger_count}")
-        print(f"Published PassengerCount: {passenger_count}")
-        time.sleep(40)
+        passenger_count = random.randint(10, 50)
+        payload = f"BusID:{bus_id},PassengerCount:{passenger_count}"
+        client.publish(topic=TOPIC, payload=payload)
+        time.sleep(5)
 
 if __name__ == "__main__":
     publish_sensor_data()

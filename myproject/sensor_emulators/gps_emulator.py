@@ -3,28 +3,24 @@ import time
 import random
 import paho.mqtt.client as mqtt
 
-# MQTT Broker configuration
+# Broker information
 BROKER = "mqtt_broker"
 PORT = 1883
-TOPIC = "vehicle/sensor_data/gps"
+TOPIC = "vehicle/sensor_data/passenger_count"
 
-def simulate_gps_data():
-    # Simulate random latitude and longitude for a specific area (e.g., Paris)
-    latitude = round(random.uniform(48.85, 48.87), 5)
-    longitude = round(random.uniform(2.29, 2.31), 5)
-    return latitude, longitude
+# We set a standard bus_id but we will diferentiate it further
+bus_id = "bus_1" 
 
 def publish_gps_data():
     client = mqtt.Client()
-    client.connect(BROKER, PORT, 60)
+    client.connect(host=BROKER, port=PORT, keepalive=60)
 
     while True:
-        latitude, longitude = simulate_gps_data()
-        payload = f"Latitude: {latitude}, Longitude: {longitude}"
-        client.publish(TOPIC, payload)
-        print(f"Published: {payload}")
-        time.sleep(40)  # Send data every 10 seconds
+        latitude = round(random.uniform(48.85, 48.90), 5)
+        longitude = round(random.uniform(2.29, 2.35), 5)
+        payload = f"BusID:{bus_id},Latitude:{latitude},Longitude:{longitude}"
+        client.publish(topic=TOPIC, payload=payload)
+        time.sleep(5)
 
 if __name__ == "__main__":
     publish_gps_data()
-

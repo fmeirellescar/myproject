@@ -21,66 +21,73 @@ def index():
 def metrics():
     return generate_latest(), 200, {'Content-Type': CONTENT_TYPE_LATEST}
 
-# Endpoint to GET current passenger counts and POST new passenger data
-@app.route('/passenger_counts', methods=['GET', 'POST'])
+# Endpoint to GET current passenger counts and POST new passenger data for a specific bus
+@app.route('/passenger_counts/<vehicle_id>', methods=['GET', 'POST'])
 @REQUEST_TIME.time()
-def handle_passenger_counts():
+def handle_passenger_counts(vehicle_id):
     if request.method == 'GET':
         try:
-            data = db.get_data("passenger_counts", {})
+            query = {"vehicle_id": vehicle_id}
+            data = db.get_data("passenger_counts", query)
             return jsonify(list(data)), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
     elif request.method == 'POST':
         try:
             data = request.json
+            data["vehicle_id"] = vehicle_id  # Associate data with the specific bus
             db.insert_data("passenger_counts", data)
             return jsonify({"status": "success"}), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-# Endpoint to GET real-time environmental data and POST new environment data
-@app.route('/environment_data', methods=['GET', 'POST'])
+# Endpoint to GET real-time environmental data and POST new environment data for a specific bus
+@app.route('/environment_data/<vehicle_id>', methods=['GET', 'POST'])
 @REQUEST_TIME.time()
-def handle_environment_data():
+def handle_environment_data(vehicle_id):
     if request.method == 'GET':
         try:
-            data = db.get_data("environment_data", {})
+            query = {"vehicle_id": vehicle_id}
+            data = db.get_data("environment_data", query)
             return jsonify(list(data)), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
     elif request.method == 'POST':
         try:
             data = request.json
+            data["vehicle_id"] = vehicle_id  # Associate data with the specific bus
             db.insert_data("environment_data", data)
             return jsonify({"status": "success"}), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-# Endpoint to GET real-time GPS data and POST new GPS data
-@app.route('/gps_data', methods=['GET', 'POST'])
+# Endpoint to GET real-time GPS data and POST new GPS data for a specific bus
+@app.route('/gps_data/<vehicle_id>', methods=['GET', 'POST'])
 @REQUEST_TIME.time()
-def handle_gps_data():
+def handle_gps_data(vehicle_id):
     if request.method == 'GET':
         try:
-            data = db.get_data("gps_data", {})
+            query = {"vehicle_id": vehicle_id}
+            data = db.get_data("gps_data", query)
             return jsonify(list(data)), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
     elif request.method == 'POST':
         try:
             data = request.json
+            data["vehicle_id"] = vehicle_id  # Associate data with the specific bus
             db.insert_data("gps_data", data)
             return jsonify({"status": "success"}), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-# Endpoint to GET active alerts
-@app.route('/alerts', methods=['GET'])
+# Endpoint to GET active alerts for a specific bus
+@app.route('/alerts/<vehicle_id>', methods=['GET'])
 @REQUEST_TIME.time()
-def get_alerts():
+def get_alerts(vehicle_id):
     try:
-        alerts = db.get_data("alerts", {})
+        query = {"vehicle_id": vehicle_id}
+        alerts = db.get_data("alerts", query)
         return jsonify(list(alerts)), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500

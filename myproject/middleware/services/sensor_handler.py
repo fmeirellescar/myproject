@@ -2,7 +2,9 @@ import logging
 from datetime import datetime
 import random
 import paho.mqtt.client as mqtt
+import requests
 from prometheus_client import Gauge
+from pymongo import MongoClient
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -13,11 +15,13 @@ occupancy_gauge = Gauge('occupancy_percentage', 'Percentage of occupancy in the 
 temperature_gauge = Gauge('vehicle_temperature', 'Temperature inside the vehicle', ['vehicle_id'])
 humidity_gauge = Gauge('vehicle_humidity', 'Humidity inside the vehicle', ['vehicle_id'])
 
-# Global variables for batch data and batch size
-BATCH_SIZE = 10  # Set the batch size to trigger insert
-passenger_batch = []
-environment_batch = []
-gps_batch = []
+# Discord webhook URL for notifications
+DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1299387053884309605/D4jjgSf2NrAJG3qhikhjX9J96XeJNEBHOFuKxymQ5C0yAUCq1cxGDFU22w9Q4vo48JIF"
+
+# MongoDB client for accessing GPS data
+mongo_client = MongoClient("mongodb://mongodb:27017/")
+db = mongo_client["transport_db"]
+
 
 # Simulate validated tickets (ensure it's never higher than passenger count)
 def simulate_validated_tickets(passenger_count):
@@ -35,6 +39,40 @@ def check_fare_evasion(passenger_count, validated_tickets):
         logging.info(f"Fare evasion detected: {evasion_count} passengers without valid tickets.")
         return True, evasion_count
     return False, 0
+# Retrieve latest GPS position from MongoDB
+def get_latest_gps_position(vehicle_id):
+    try:
+        gps_data = db["gps_data"].find_one(
+            {"vehicle_id": vehicle_id},
+            sort=[("timestamp", -1)]
+        )
+        if gps_data:
+            return gps_data["latitude"], gps_data["longitude"]
+        else:
+            return None, None
+    except Exception as e:
+        logging.error(f"Error retrieving GPS data for {vehicle_id}: {e}")
+        return None, None
+
+# Send Discord alert if evasion count exceeds threshold, including GPS position
+def send_discord_alert(vehicle_id, evasion_count):
+    if evasion_count > 20:
+        latitude, longitude = get_latest_gps_position(vehicle_id)
+        location_info = f"Latitude: {latitude}, Longitude: {longitude}" if latitude and longitude else "Location data unavailable"
+
+        message = {
+            "content": f"🚨 Alert: High fare evasion detected! 🚨\n"
+                       f"Vehicle ID: {vehicle_id}\n"
+                       f"Unvalidated Tickets: {evasion_count}\n"
+                       f"GPS Position: {location_info}\n"
+                       f"Timestamp: {datetime.utcnow().isoformat()}",
+        }
+        try:
+            response = requests.post(DISCORD_WEBHOOK_URL, json=message)
+            response.raise_for_status()
+            logging.info(f"Discord alert sent for vehicle {vehicle_id} with {evasion_count} unvalidated tickets.")
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Failed to send Discord alert: {e}")
 
 # Update Prometheus metrics
 def update_metrics(vehicle_id, unvalidated_passengers, occupancy_percentage, temperature, humidity):
@@ -53,12 +91,15 @@ def on_message(client, userdata, msg):
     topic = msg.topic
     payload = msg.payload.decode()
 
-    global passenger_batch, environment_batch, gps_batch
-
     logging.info(f"Received message on topic {topic}: {payload}")
 
     try:
-        if "passenger_count" in topic:
+        # Extract sensor type and vehicle_id correctly from topic
+        topic_parts = topic.split("/")
+        sensor_type = topic_parts[2]
+        vehicle_id = topic_parts[3]  # Correct vehicle ID extraction
+
+        if "passenger_count" in sensor_type:
             # Process passenger data
             passenger_count = int(payload.split(":")[1])
             validated_tickets = simulate_validated_tickets(passenger_count)
@@ -68,27 +109,24 @@ def on_message(client, userdata, msg):
             data = {
                 "timestamp": datetime.utcnow(),
                 "sensor_type": "passenger_count",
-                "vehicle_id": "bus_123",  # Replace with actual vehicle ID
+                "vehicle_id": vehicle_id,
                 "passenger_count": passenger_count,
                 "validated_tickets": validated_tickets,
                 "fare_evasion_detected": fare_evasion_detected,
                 "evasion_count": evasion_count
             }
 
-            # Add the data to the passenger batch
-            passenger_batch.append(data)
-
-            # Insert batch if batch size is reached
-            if len(passenger_batch) >= BATCH_SIZE:
-                logging.info(f"Inserting passenger batch data into MongoDB: {passenger_batch}")
-                db.insert_data("passenger_counts", passenger_batch)
-                passenger_batch = []  # Reset the batch
+            # Insert passenger data in MongoDB
+            db.insert_data("passenger_counts", data)
 
             # Calculate occupancy and update metrics
             occupancy_percentage = (passenger_count / 50) * 100  # Assume bus capacity of 50
-            update_metrics("bus_123", evasion_count, occupancy_percentage, None, None)
+            update_metrics(vehicle_id, evasion_count, occupancy_percentage, None, None)
 
-        elif "environment" in topic:
+            # Send Discord alert if fare evasion threshold is met
+            send_discord_alert(vehicle_id, evasion_count)
+
+        elif "environment" in sensor_type:
             # Process environmental data
             temperature, humidity = payload.split(",")
             temp_value = float(temperature.split(":")[1].strip("C"))
@@ -97,42 +135,30 @@ def on_message(client, userdata, msg):
             data = {
                 "timestamp": datetime.utcnow(),
                 "sensor_type": "environment",
-                "vehicle_id": "bus_123",
+                "vehicle_id": vehicle_id,
                 "temperature": temp_value,
                 "humidity": hum_value
             }
 
-            # Add the data to the environment batch
-            environment_batch.append(data)
-
-            # Insert batch if batch size is reached
-            if len(environment_batch) >= BATCH_SIZE:
-                logging.info(f"Inserting environment batch data into MongoDB: {environment_batch}")
-                db.insert_data("environment_data", environment_batch)
-                environment_batch = []  # Reset the batch
+            # Insert environmental data in MongoDB
+            db.insert_data("environment_data", data)
 
             # Update metrics for temperature and humidity
-            update_metrics("bus_123", None, None, temp_value, hum_value)
+            update_metrics(vehicle_id, None, None, temp_value, hum_value)
 
-        elif "gps" in topic:
+        elif "gps" in sensor_type:
             # Process GPS data
             latitude, longitude = payload.split(",")
             data = {
                 "timestamp": datetime.utcnow(),
                 "sensor_type": "gps",
-                "vehicle_id": "bus_123",
+                "vehicle_id": vehicle_id,
                 "latitude": float(latitude.split(":")[1]),
                 "longitude": float(longitude.split(":")[1])
             }
 
-            # Add the data to the GPS batch
-            gps_batch.append(data)
-
-            # Insert batch if batch size is reached
-            if len(gps_batch) >= BATCH_SIZE:
-                logging.info(f"Inserting GPS batch data into MongoDB: {gps_batch}")
-                db.insert_data("gps_data", gps_batch)
-                gps_batch = []  # Reset the batch
+            # Insert GPS data in MongoDB
+            db.insert_data("gps_data", data)
 
     except Exception as e:
         logging.error(f"Error processing message on topic {topic}: {str(e)}", exc_info=True)

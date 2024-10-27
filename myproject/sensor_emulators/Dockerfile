@@ -1,15 +1,13 @@
-# Use a lightweight Python image
+# sensor_emulators/Dockerfile
+
 FROM python:3.8-slim
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy the current directory contents into the container
-COPY . .
+# Copy the sensor emulator scripts and bus logic
+COPY . /app
 
-# Install required Python packages
+# Install necessary dependencies
 RUN pip install paho-mqtt
 
-# Default command to run the passenger emulator (override in Compose)
-CMD ["python", "passenger_emulator.py"]
-
+CMD ["python", "bus_manager.py"]

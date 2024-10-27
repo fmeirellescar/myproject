@@ -43,39 +43,14 @@ services:
     depends_on:
       - middleware
 
-  passenger_emulator:
-    build:
-      context: ./sensor_emulators
-    container_name: passenger_emulator
-    command: python passenger_emulator.py
+  sensor_emulators:
+    build: ./sensor_emulators
+    container_name: sensor_emulators
     depends_on:
       - mqtt_broker
     environment:
       - BROKER=mqtt_broker
-    volumes:
-      - ./sensor_emulators:/app
-
-  environment_emulator:
-    build:
-      context: ./sensor_emulators
-    container_name: environment_emulator
-    command: python environment_emulator.py
-    depends_on:
-      - mqtt_broker
-    environment:
-      - BROKER=mqtt_broker
-    volumes:
-      - ./sensor_emulators:/app
-
-  gps_emulator:
-    build:
-      context: ./sensor_emulators
-    container_name: gps_emulator
-    command: python gps_emulator.py
-    depends_on:
-      - mqtt_broker
-    environment:
-      - BROKER=mqtt_broker
+    restart: always
     volumes:
       - ./sensor_emulators:/app
 

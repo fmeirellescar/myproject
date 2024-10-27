@@ -1,0 +1,5 @@
+myproject/logs.txt
+myproject/middleware/__pycache__/config.cpython-38.pyc
+myproject/middleware/api/__pycache__/routes.cpython-38.pyc
+myproject/middleware/services/__pycache__/db_handler.cpython-38.pyc
+myproject/middleware/services/__pycache__/sensor_handler.cpython-38.pyc

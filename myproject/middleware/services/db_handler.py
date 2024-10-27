@@ -7,16 +7,11 @@ class MongoDBHandler:
         self.db = self.client[db_name]
 
     def insert_data(self, collection_name, data):
-        """Insert single or batch data into the MongoDB collection."""
+        """Insert data into the MongoDB collection."""
         collection = self.db[collection_name]
 
-        # Check if data is a list (batch insert) or single document
-        if isinstance(data, list):
-            # Insert multiple documents at once
-            collection.insert_many(data)
-        else:
-            # Insert a single document
-            collection.insert_one(data)
+        # Always insert a single document for streaming
+        collection.insert_one(data)
 
     def get_data(self, collection_name, query={}):
         """Retrieve data from a MongoDB collection and convert ObjectId to string."""
